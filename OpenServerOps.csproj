@@ -6,5 +6,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <DefaultItemExcludes>$(DefaultItemExcludes);test-output\**;tests\**</DefaultItemExcludes>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="App.xaml.cs;MainWindow.xaml.cs;ServerAudit.cs" />
+    <Page Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+  </ItemGroup>
 </Project>

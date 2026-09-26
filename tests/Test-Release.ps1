@@ -1,0 +1,13 @@
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+$out = Join-Path $root 'test-output'
+if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+dotnet build (Join-Path $root 'OpenServerOps.csproj') -c Release --nologo -p:BaseIntermediateOutputPath="$out\obj\"
+dotnet publish (Join-Path $root 'OpenServerOps.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:BaseIntermediateOutputPath="$out\obj\" -o $out --nologo
+$exe = Join-Path $out 'OpenServerOps.exe'
+if (!(Test-Path $exe)) { throw 'Published executable was not produced.' }
+$p = Start-Process $exe -PassThru
+Start-Sleep -Seconds 3
+if ($p.HasExited) { throw "OpenServerOps exited during smoke test with code $($p.ExitCode)." }
+Stop-Process -Id $p.Id -Force
+Write-Host 'PASS: build, publish, and launch smoke test'

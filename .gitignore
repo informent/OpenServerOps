@@ -1,0 +1,6 @@
+bin/
+obj/
+test-output/
+package-stage/
+*.user
+*.suo

@@ -4,7 +4,7 @@
 winexe
 C#
 .cs
-C:\Users\bryso\Downloads\OpenServerOps\obj\x64\Release\net10.0-windows\win-x64\
+C:\Users\bryso\Downloads\OpenServerOps\obj-final\x64\Release\net10.0-windows\
 OpenServerOps
 none
 false
@@ -12,7 +12,7 @@ TRACE;RELEASE;NET;NET10_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0
 C:\Users\bryso\Downloads\OpenServerOps\App.xaml
 11407045341
 
-3397234813
+4-701969846
 2141215581199
 MainWindow.xaml;
 
