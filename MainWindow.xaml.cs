@@ -20,10 +20,10 @@ public partial class MainWindow : Window
     {
         if (serverRoot is null) { HealthResult.Text = "Choose a server folder first."; return; }
         var result = ServerAudit.Scan(serverRoot); StateText.Text = "Checked"; LastCheck.Text = DateTime.Now.ToShortTimeString(); FindingCount.Text = "0";
-        HealthResult.Text = $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free · {result.MatchingProcesses} matching process(es)";
-        StorageResult.Text = $"{result.FileCount:N0} files scanned"; AddonResult.Text = $"{result.AddonFileCount:N0} addons · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop"; BackupResult.Text = $"{result.BackupFileCount:N0} archive(s) found";
+        HealthResult.Text = $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free · {result.MatchingProcesses} process(es) · port {result.Ports[0].Port} {(result.Ports[0].Open ? "open" : "closed")}";
+        StorageResult.Text = $"{result.FileCount:N0} files scanned"; AddonResult.Text = $"{result.AddonFileCount:N0} addons · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop"; BackupResult.Text = $"{result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable archive(s)";
         logFiles = result.LogFiles; RefreshLogList();
-        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nFree disk: {result.FreeBytes / (1024d * 1024 * 1024):N1} GB\nLog files: {result.LogCount:N0}\nLargest log: {result.LargestLog ?? "none"}\nAddon-related files: {result.AddonFileCount:N0}\nWorkshop files: {result.WorkshopFileCount:N0}\nBackup archives: {result.BackupFileCount:N0}\nNo files were changed.";
+        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nFree disk: {result.FreeBytes / (1024d * 1024 * 1024):N1} GB\nLog files: {result.LogCount:N0}\nLargest log: {result.LargestLog ?? "none"}\nAddon-related files: {result.AddonFileCount:N0}\nWorkshop files: {result.WorkshopFileCount:N0}\nBackup archives: {result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable\nPort {result.Ports[0].Port}: {(result.Ports[0].Open ? "open" : "closed")}\nNo files were changed.";
     }
     private void LogFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => RefreshLogList();
     private void ClearLogFilter_Click(object sender, RoutedEventArgs e) => LogFilter.Clear();

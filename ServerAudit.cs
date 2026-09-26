@@ -1,12 +1,15 @@
 using System.IO;
+using System.IO.Compression;
+using System.Net.Sockets;
 
 namespace OpenServerOps;
 
-public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles);
+public sealed record PortResult(int Port, bool Open);
+public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, int ValidBackupCount, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles, IReadOnlyList<PortResult> Ports);
 
 public static class ServerAudit
 {
-    public static AuditResult Scan(string root)
+    public static AuditResult Scan(string root, IReadOnlyList<int>? ports = null)
     {
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
         var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories);
@@ -25,8 +28,16 @@ public static class ServerAudit
         try { matchingProcesses = System.Diagnostics.Process.GetProcessesByName(processName).Length; } catch { }
         string? largestLog = null; var logFiles = Array.Empty<string>();
         try { logFiles = Directory.EnumerateFiles(root, "*.log", SearchOption.AllDirectories).ToArray(); largestLog = logFiles.OrderByDescending(FileInfoLength).FirstOrDefault(); } catch { }
-        return new AuditResult(count, logs, addons, workshop, backups, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles);
+        var backupFiles = files.Where(x => x.Contains("backup", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".zip", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".7z", StringComparison.OrdinalIgnoreCase)).ToArray();
+        var validBackups = backupFiles.Count(IsReadableArchive);
+        var portResults = (ports ?? new[] { 27015 }).Select(port => new PortResult(port, IsPortOpen(port))).ToArray();
+        return new AuditResult(count, logs, addons, workshop, backups, validBackups, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles, portResults);
     }
 
     private static long FileInfoLength(string path) { try { return new FileInfo(path).Length; } catch { return 0; } }
+    private static bool IsReadableArchive(string path) { try { using var archive = ZipFile.OpenRead(path); return archive.Entries.Count >= 0; } catch { return false; } }
+    private static bool IsPortOpen(int port)
+    {
+        try { using var client = new TcpClient(); var task = client.ConnectAsync("127.0.0.1", port); return task.Wait(120) && client.Connected; } catch { return false; }
+    }
 }
