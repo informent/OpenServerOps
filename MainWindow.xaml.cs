@@ -20,7 +20,7 @@ public partial class MainWindow : Window
         if (serverRoot is null) { HealthResult.Text = "Choose a server folder first."; return; }
         var result = ServerAudit.Scan(serverRoot); StateText.Text = "Checked"; LastCheck.Text = DateTime.Now.ToShortTimeString(); FindingCount.Text = "0";
         HealthResult.Text = "No blocking findings"; StorageResult.Text = $"{result.FileCount:N0} files scanned";
-        AddonResult.Text = $"{result.AddonFileCount:N0} addon-related files · {result.LogCount:N0} logs";
-        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nLog files: {result.LogCount:N0}\nAddon-related files: {result.AddonFileCount:N0}\nNo files were changed.";
+        AddonResult.Text = $"{result.AddonFileCount:N0} addons · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop";
+        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nLog files: {result.LogCount:N0}\nAddon-related files: {result.AddonFileCount:N0}\nWorkshop files: {result.WorkshopFileCount:N0}\nBackup archives: {result.BackupFileCount:N0}\nNo files were changed.";
     }
 }
