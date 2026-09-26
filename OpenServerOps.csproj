@@ -8,11 +8,12 @@
     <Nullable>enable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <DefaultItemExcludes>$(DefaultItemExcludes);test-output\**;tests\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="App.xaml.cs;MainWindow.xaml.cs;ServerAudit.cs" />
-    <Page Include="App.xaml" />
+    <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
   </ItemGroup>
 </Project>
