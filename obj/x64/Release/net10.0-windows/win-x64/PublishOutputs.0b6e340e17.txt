@@ -1,0 +1,6 @@
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\D3DCompiler_47_cor3.dll
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\PenImc_cor3.dll
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\PresentationNative_cor3.dll
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\vcruntime140_cor3.dll
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\wpfgfx_cor3.dll
+C:\Users\bryso\Downloads\GITHUB\OpenServerOps-001\OpenServerOps.exe
