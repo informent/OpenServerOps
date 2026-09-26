@@ -13,4 +13,5 @@ jobs:
       - run: dotnet build -c Release --nologo
       - run: pwsh -File tests/Test-Release.ps1
       - run: pwsh -File tests/Test-UI.ps1
+      - run: pwsh -File tests/Test-SigningPath.ps1
       - run: pwsh -File tools/Verify-Release.ps1 -Executable bin/x64/Release/net10.0-windows/OpenServerOps.exe

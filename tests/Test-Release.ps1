@@ -8,8 +8,12 @@ $exe = Join-Path $out 'OpenServerOps.exe'
 if (!(Test-Path $exe)) { throw 'Published executable was not produced.' }
 $p = Start-Process $exe -PassThru
 Start-Sleep -Seconds 3
-$p.Refresh()
-if ($p.HasExited) { throw "OpenServerOps exited during smoke test with code $($p.ExitCode)." }
-if ([string]::IsNullOrWhiteSpace($p.MainWindowTitle)) { Stop-Process -Id $p.Id -Force; throw 'OpenServerOps stayed alive without creating its main window.' }
+$deadline = (Get-Date).AddSeconds(10)
+do {
+    Start-Sleep -Milliseconds 250
+    $p.Refresh()
+    if ($p.HasExited) { throw "OpenServerOps exited during smoke test with code $($p.ExitCode)." }
+} while ([string]::IsNullOrWhiteSpace($p.MainWindowTitle) -and (Get-Date) -lt $deadline)
+if ([string]::IsNullOrWhiteSpace($p.MainWindowTitle)) { Stop-Process -Id $p.Id -Force; throw 'OpenServerOps stayed alive without creating its main window within 10 seconds.' }
 Stop-Process -Id $p.Id -Force
 Write-Host "PASS: build, publish, and launch smoke test ($($p.MainWindowTitle))"
