@@ -9,7 +9,7 @@ public partial class MainWindow : Window
     private string? serverRoot;
     private IReadOnlyList<string> logFiles = Array.Empty<string>();
     private readonly AppSettings settings;
-    public MainWindow() { InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; if (settings.DarkMode) ApplyTheme(true); }
+    public MainWindow() { InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged; if (settings.DarkMode) ApplyTheme(true); }
     private void ChooseServer_Click(object sender, RoutedEventArgs e)
     {
         using var dialog = new Forms.FolderBrowserDialog { Description = "Choose the local server folder to audit" };
@@ -28,6 +28,20 @@ public partial class MainWindow : Window
     }
     private void LogFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => RefreshLogList();
     private void ClearLogFilter_Click(object sender, RoutedEventArgs e) => LogFilter.Clear();
+    private void LogList_SelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        var name = LogList.SelectedItem as string;
+        var path = logFiles.FirstOrDefault(x => Path.GetFileName(x).Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (path is null) return;
+        try
+        {
+            var text = File.ReadAllText(path);
+            var preview = text.Length > 5000 ? text[^5000..] : text;
+            var errors = text.Split('\n').Count(x => x.Contains("error", StringComparison.OrdinalIgnoreCase) || x.Contains("exception", StringComparison.OrdinalIgnoreCase));
+            Activity.Text = $"Log preview: {Path.GetFileName(path)}\nSeverity matches: {errors}\n\n{preview}";
+        }
+        catch (Exception ex) { Activity.Text = $"Unable to read selected log: {ex.Message}"; }
+    }
     private void DarkMode_Click(object sender, RoutedEventArgs e)
     {
         var dark = DarkMode.IsChecked == true;
