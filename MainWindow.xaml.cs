@@ -9,7 +9,34 @@ public partial class MainWindow : Window
     private string? serverRoot;
     private IReadOnlyList<string> logFiles = Array.Empty<string>();
     private readonly AppSettings settings;
-    public MainWindow() { InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged; if (settings.DarkMode) ApplyTheme(true); }
+    private System.Windows.Controls.TextBox? portEditor;
+    public MainWindow()
+    {
+        InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged;
+        var dashboard = Content;
+        var tabs = new System.Windows.Controls.TabControl();
+        tabs.Items.Add(new System.Windows.Controls.TabItem { Header = "Dashboard", Content = dashboard });
+        tabs.Items.Add(new System.Windows.Controls.TabItem { Header = "Settings", Content = BuildSettingsPanel() });
+        Content = tabs;
+        if (settings.DarkMode) ApplyTheme(true);
+    }
+    private System.Windows.Controls.Panel BuildSettingsPanel()
+    {
+        var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(32) };
+        panel.Children.Add(new System.Windows.Controls.TextBlock { Text = "Settings", FontSize = 26, FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(new System.Windows.Controls.TextBlock { Text = "Local scan rules are saved only on this computer.", Foreground = (System.Windows.Media.Brush)FindResource("Muted"), Margin = new Thickness(0, 6, 0, 24) });
+        panel.Children.Add(new System.Windows.Controls.TextBlock { Text = "SERVER PORT TO PROBE", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = (System.Windows.Media.Brush)FindResource("Muted") });
+        portEditor = new System.Windows.Controls.TextBox { Text = settings.Port.ToString(), Width = 120, Height = 32, Margin = new Thickness(0, 8, 0, 18) };
+        panel.Children.Add(portEditor);
+        var save = new System.Windows.Controls.Button { Content = "Save scan settings", Width = 170, HorizontalAlignment = System.Windows.HorizontalAlignment.Left, Background = (System.Windows.Media.Brush)FindResource("Blue"), Foreground = System.Windows.Media.Brushes.White };
+        save.Click += (_, _) => SaveSettings(); panel.Children.Add(save);
+        return panel;
+    }
+    private void SaveSettings()
+    {
+        if (portEditor is not null && int.TryParse(portEditor.Text, out var port) && port is > 0 and < 65536) settings.Port = port;
+        settings.DarkMode = DarkMode.IsChecked == true; settings.Save();
+    }
     private void ChooseServer_Click(object sender, RoutedEventArgs e)
     {
         using var dialog = new Forms.FolderBrowserDialog { Description = "Choose the local server folder to audit" };
