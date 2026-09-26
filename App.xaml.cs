@@ -16,9 +16,13 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         var window = new MainWindow();
         MainWindow = window;
+        window.Closed += (_, _) => WriteCrash(new InvalidOperationException("Main window closed; shutdown mode=" + ShutdownMode));
+        Exit += (_, _) => WriteCrash(new InvalidOperationException("Application exited."));
         window.Show();
+        window.Activate();
     }
 
     private static void WriteCrash(Exception? exception)

@@ -1,11 +1,12 @@
 using System.IO;
 using System.IO.Compression;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 
 namespace OpenServerOps;
 
 public sealed record PortResult(int Port, bool Open);
-public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, int ValidBackupCount, int SuspiciousAddonFiles, int SuspiciousWorkshopFiles, double? OldestBackupDays, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles, IReadOnlyList<PortResult> Ports);
+public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, int ValidBackupCount, int SuspiciousAddonFiles, int SuspiciousWorkshopFiles, int HashedArtifactCount, double? OldestBackupDays, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles, IReadOnlyList<PortResult> Ports);
 
 public static class ServerAudit
 {
@@ -32,13 +33,15 @@ public static class ServerAudit
         var validBackups = backupFiles.Count(IsReadableArchive);
         var suspiciousAddons = files.Count(x => x.Contains("addons", StringComparison.OrdinalIgnoreCase) && FileInfoLength(x) == 0);
         var suspiciousWorkshop = files.Count(x => (x.Contains("workshop", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".bin", StringComparison.OrdinalIgnoreCase)) && FileInfoLength(x) == 0);
+        var hashedArtifacts = files.Count(x => (x.Contains("addons", StringComparison.OrdinalIgnoreCase) || x.Contains("workshop", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".bin", StringComparison.OrdinalIgnoreCase)) && TryHash(x));
         var oldestBackupDays = backupFiles.Length == 0 ? (double?)null : backupFiles.Max(x => (DateTime.UtcNow - File.GetLastWriteTimeUtc(x)).TotalDays);
         var portResults = (ports ?? new[] { 27015 }).Select(port => new PortResult(port, IsPortOpen(port))).ToArray();
-        return new AuditResult(count, logs, addons, workshop, backups, validBackups, suspiciousAddons, suspiciousWorkshop, oldestBackupDays, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles, portResults);
+        return new AuditResult(count, logs, addons, workshop, backups, validBackups, suspiciousAddons, suspiciousWorkshop, hashedArtifacts, oldestBackupDays, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles, portResults);
     }
 
     private static long FileInfoLength(string path) { try { return new FileInfo(path).Length; } catch { return 0; } }
     private static bool IsReadableArchive(string path) { try { using var archive = ZipFile.OpenRead(path); return archive.Entries.Count >= 0; } catch { return false; } }
+    private static bool TryHash(string path) { try { var info = new FileInfo(path); if (info.Length > 10 * 1024 * 1024) return false; using var stream = info.OpenRead(); _ = SHA256.HashData(stream); return true; } catch { return false; } }
     private static bool IsPortOpen(int port)
     {
         try { using var client = new TcpClient(); var task = client.ConnectAsync("127.0.0.1", port); return task.Wait(120) && client.Connected; } catch { return false; }

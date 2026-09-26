@@ -13,6 +13,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged;
+        System.Windows.Automation.AutomationProperties.SetName(DarkMode, "Toggle dark theme"); System.Windows.Automation.AutomationProperties.SetName(LogFilter, "Filter log files"); System.Windows.Automation.AutomationProperties.SetName(LogList, "Discovered server logs"); System.Windows.Automation.AutomationProperties.SetName(Activity, "Audit activity and selected log preview");
         var dashboard = Content;
         var tabs = new System.Windows.Controls.TabControl();
         tabs.Items.Add(new System.Windows.Controls.TabItem { Header = "Dashboard", Content = dashboard });
@@ -51,7 +52,7 @@ public partial class MainWindow : Window
         HealthResult.Text = $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free · {result.MatchingProcesses} process(es) · port {result.Ports[0].Port} {(result.Ports[0].Open ? "open" : "closed")}";
         StorageResult.Text = $"{result.FileCount:N0} files scanned"; AddonResult.Text = $"{result.AddonFileCount:N0} addons · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop"; BackupResult.Text = $"{result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable · oldest {(result.OldestBackupDays ?? 0):N0}d";
         logFiles = result.LogFiles; RefreshLogList();
-        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nFree disk: {result.FreeBytes / (1024d * 1024 * 1024):N1} GB\nLog files: {result.LogCount:N0}\nLargest log: {result.LargestLog ?? "none"}\nAddon files: {result.AddonFileCount:N0} ({result.SuspiciousAddonFiles} empty)\nWorkshop files: {result.WorkshopFileCount:N0} ({result.SuspiciousWorkshopFiles} empty)\nBackups: {result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable; oldest {(result.OldestBackupDays ?? 0):N0} days\nPort {result.Ports[0].Port}: {(result.Ports[0].Open ? "open" : "closed")}\nNo files were changed.";
+        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nFree disk: {result.FreeBytes / (1024d * 1024 * 1024):N1} GB\nLog files: {result.LogCount:N0}\nLargest log: {result.LargestLog ?? "none"}\nAddon files: {result.AddonFileCount:N0} ({result.SuspiciousAddonFiles} empty)\nWorkshop files: {result.WorkshopFileCount:N0} ({result.SuspiciousWorkshopFiles} empty)\nArtifact hashes: {result.HashedArtifactCount:N0}\nBackups: {result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable; oldest {(result.OldestBackupDays ?? 0):N0} days\nPort {result.Ports[0].Port}: {(result.Ports[0].Open ? "open" : "closed")}\nNo files were changed.";
     }
     private void LogFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => RefreshLogList();
     private void ClearLogFilter_Click(object sender, RoutedEventArgs e) => LogFilter.Clear();
