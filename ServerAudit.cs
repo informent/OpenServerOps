@@ -2,7 +2,7 @@ using System.IO;
 
 namespace OpenServerOps;
 
-public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount);
+public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles);
 
 public static class ServerAudit
 {
@@ -19,6 +19,14 @@ public static class ServerAudit
             if (file.Contains("workshop", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".bin", StringComparison.OrdinalIgnoreCase)) workshop++;
             if (file.Contains("backup", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".zip", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".7z", StringComparison.OrdinalIgnoreCase)) backups++;
         }
-        return new AuditResult(count, logs, addons, workshop, backups);
+        var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root))!);
+        var processName = new DirectoryInfo(root).Name;
+        var matchingProcesses = 0;
+        try { matchingProcesses = System.Diagnostics.Process.GetProcessesByName(processName).Length; } catch { }
+        string? largestLog = null; var logFiles = Array.Empty<string>();
+        try { logFiles = Directory.EnumerateFiles(root, "*.log", SearchOption.AllDirectories).ToArray(); largestLog = logFiles.OrderByDescending(FileInfoLength).FirstOrDefault(); } catch { }
+        return new AuditResult(count, logs, addons, workshop, backups, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles);
     }
+
+    private static long FileInfoLength(string path) { try { return new FileInfo(path).Length; } catch { return 0; } }
 }

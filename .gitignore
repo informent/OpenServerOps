@@ -5,3 +5,4 @@ package-stage/
 *.user
 *.suo
 obj-*/
+test-output/
