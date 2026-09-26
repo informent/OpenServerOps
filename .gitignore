@@ -4,3 +4,4 @@ test-output/
 package-stage/
 *.user
 *.suo
+obj-*/
