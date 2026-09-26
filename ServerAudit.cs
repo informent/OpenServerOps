@@ -5,7 +5,7 @@ using System.Net.Sockets;
 namespace OpenServerOps;
 
 public sealed record PortResult(int Port, bool Open);
-public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, int ValidBackupCount, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles, IReadOnlyList<PortResult> Ports);
+public sealed record AuditResult(int FileCount, int LogCount, int AddonFileCount, int WorkshopFileCount, int BackupFileCount, int ValidBackupCount, int SuspiciousAddonFiles, int SuspiciousWorkshopFiles, double? OldestBackupDays, long FreeBytes, int MatchingProcesses, string? LargestLog, IReadOnlyList<string> LogFiles, IReadOnlyList<PortResult> Ports);
 
 public static class ServerAudit
 {
@@ -30,8 +30,11 @@ public static class ServerAudit
         try { logFiles = Directory.EnumerateFiles(root, "*.log", SearchOption.AllDirectories).ToArray(); largestLog = logFiles.OrderByDescending(FileInfoLength).FirstOrDefault(); } catch { }
         var backupFiles = files.Where(x => x.Contains("backup", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".zip", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".7z", StringComparison.OrdinalIgnoreCase)).ToArray();
         var validBackups = backupFiles.Count(IsReadableArchive);
+        var suspiciousAddons = files.Count(x => x.Contains("addons", StringComparison.OrdinalIgnoreCase) && FileInfoLength(x) == 0);
+        var suspiciousWorkshop = files.Count(x => (x.Contains("workshop", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(x).Equals(".bin", StringComparison.OrdinalIgnoreCase)) && FileInfoLength(x) == 0);
+        var oldestBackupDays = backupFiles.Length == 0 ? (double?)null : backupFiles.Max(x => (DateTime.UtcNow - File.GetLastWriteTimeUtc(x)).TotalDays);
         var portResults = (ports ?? new[] { 27015 }).Select(port => new PortResult(port, IsPortOpen(port))).ToArray();
-        return new AuditResult(count, logs, addons, workshop, backups, validBackups, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles, portResults);
+        return new AuditResult(count, logs, addons, workshop, backups, validBackups, suspiciousAddons, suspiciousWorkshop, oldestBackupDays, drive.AvailableFreeSpace, matchingProcesses, largestLog, logFiles, portResults);
     }
 
     private static long FileInfoLength(string path) { try { return new FileInfo(path).Length; } catch { return 0; } }

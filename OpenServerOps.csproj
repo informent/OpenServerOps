@@ -12,7 +12,7 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);test-output\**;tests\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="App.xaml.cs;MainWindow.xaml.cs;ServerAudit.cs" />
+    <Compile Include="App.xaml.cs;MainWindow.xaml.cs;ServerAudit.cs;AppSettings.cs" />
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
   </ItemGroup>
