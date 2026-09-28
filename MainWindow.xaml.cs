@@ -10,16 +10,19 @@ public partial class MainWindow : Window
     private IReadOnlyList<string> logFiles = Array.Empty<string>();
     private readonly AppSettings settings;
     private System.Windows.Controls.TextBox? portEditor;
-    public MainWindow()
+    public MainWindow(string? initialFolder = null)
     {
         InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged;
         System.Windows.Automation.AutomationProperties.SetName(DarkMode, "Toggle dark theme"); System.Windows.Automation.AutomationProperties.SetName(LogFilter, "Filter log files"); System.Windows.Automation.AutomationProperties.SetName(LogList, "Discovered server logs"); System.Windows.Automation.AutomationProperties.SetName(Activity, "Audit activity and selected log preview");
         var dashboard = Content;
+        Content = null;
         var tabs = new System.Windows.Controls.TabControl();
         tabs.Items.Add(new System.Windows.Controls.TabItem { Header = "Dashboard", Content = dashboard });
         tabs.Items.Add(new System.Windows.Controls.TabItem { Header = "Settings", Content = BuildSettingsPanel() });
         Content = tabs;
         if (settings.DarkMode) ApplyTheme(true);
+        Closed += (_, _) => scanCancellation?.Cancel();
+        if (initialFolder is not null) SelectServer(initialFolder);
     }
     private System.Windows.Controls.Panel BuildSettingsPanel()
     {
@@ -42,31 +45,59 @@ public partial class MainWindow : Window
     {
         using var dialog = new Forms.FolderBrowserDialog { Description = "Choose the local server folder to audit" };
         if (dialog.ShowDialog() != Forms.DialogResult.OK) return;
-        serverRoot = dialog.SelectedPath; ServerName.Text = new DirectoryInfo(serverRoot).Name; ServerPath.Text = serverRoot;
+        SelectServer(dialog.SelectedPath);
+    }
+    private void SelectServer(string path)
+    {
+        if (!Directory.Exists(path)) { HealthResult.Text = "The selected server folder does not exist."; return; }
+        serverRoot = Path.GetFullPath(path); ServerName.Text = new DirectoryInfo(serverRoot).Name; ServerPath.Text = serverRoot;
+        logFiles = Array.Empty<string>(); RefreshLogList(); FindingCount.Text = "—"; LastCheck.Text = "—";
+        StorageResult.Text = "Not checked"; AddonResult.Text = "Not checked"; BackupResult.Text = "Not checked";
         StateText.Text = "Ready"; HealthResult.Text = "Ready for read-only checks"; Activity.Text = $"Selected {DateTime.Now:T}\n{serverRoot}";
     }
-    private void RunChecks_Click(object sender, RoutedEventArgs e)
+    private CancellationTokenSource? scanCancellation;
+    private async void RunChecks_Click(object sender, RoutedEventArgs e)
     {
+        if (scanCancellation is not null) { scanCancellation.Cancel(); return; }
         if (serverRoot is null) { HealthResult.Text = "Choose a server folder first."; return; }
-        var result = ServerAudit.Scan(serverRoot, new[] { settings.Port }); StateText.Text = "Checked"; LastCheck.Text = DateTime.Now.ToShortTimeString(); FindingCount.Text = "0";
-        HealthResult.Text = $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free · {result.MatchingProcesses} process(es) · port {result.Ports[0].Port} {(result.Ports[0].Open ? "open" : "closed")}";
-        StorageResult.Text = $"{result.FileCount:N0} files scanned"; AddonResult.Text = $"{result.AddonFileCount:N0} addons · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop"; BackupResult.Text = $"{result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable · oldest {(result.OldestBackupDays ?? 0):N0}d";
-        logFiles = result.LogFiles; RefreshLogList();
-        Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles scanned: {result.FileCount:N0}\nFree disk: {result.FreeBytes / (1024d * 1024 * 1024):N1} GB\nLog files: {result.LogCount:N0}\nLargest log: {result.LargestLog ?? "none"}\nAddon files: {result.AddonFileCount:N0} ({result.SuspiciousAddonFiles} empty)\nWorkshop files: {result.WorkshopFileCount:N0} ({result.SuspiciousWorkshopFiles} empty)\nArtifact hashes: {result.HashedArtifactCount:N0}\nBackups: {result.ValidBackupCount:N0}/{result.BackupFileCount:N0} readable; oldest {(result.OldestBackupDays ?? 0):N0} days\nPort {result.Ports[0].Port}: {(result.Ports[0].Open ? "open" : "closed")}\nNo files were changed.";
+        using var cancellation = new CancellationTokenSource();
+        scanCancellation = cancellation;
+        FindingCount.Text = "—"; StorageResult.Text = "Awaiting results"; AddonResult.Text = "Awaiting results"; BackupResult.Text = "Awaiting results";
+        logFiles = Array.Empty<string>(); RefreshLogList();
+        ChooseServer.IsEnabled = false; RunChecks.Content = "Cancel scan";
+        StateText.Text = "Scanning"; Activity.Text = "Reading the selected folder. You can cancel this scan.";
+        var root = serverRoot; var port = settings.Port;
+        try
+        {
+            var result = await Task.Run(() => ServerAudit.Scan(root, new[] { port }, cancellation.Token));
+            StateText.Text = result.Issues.Count > 0 ? "Partial scan" : "Checked";
+            LastCheck.Text = DateTime.Now.ToShortTimeString(); FindingCount.Text = result.FindingCount.ToString();
+            var disk = result.FreeBytes < 0 ? "Disk space unavailable" : $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free";
+            HealthResult.Text = $"{disk} · localhost TCP {port} {(result.Ports[0].Open ? "open" : "not reached")}";
+            StorageResult.Text = $"{result.FileCount:N0} files; {result.SkippedLinks:N0} links skipped";
+            AddonResult.Text = $"{result.AddonFileCount:N0} addon files · {result.LogCount:N0} logs · {result.WorkshopFileCount:N0} workshop files";
+            BackupResult.Text = $"{result.ValidBackupCount:N0} ZIP indexes readable · {result.InvalidZipCount:N0} failed · {result.UnsupportedBackupCount:N0} unsupported";
+            logFiles = result.LogFiles; RefreshLogList();
+            var age = result.OldestBackupDays is double days ? $"{days:N0} days" : "none found";
+            Activity.Text = $"Read-only audit completed {DateTime.Now:T}\nFiles: {result.FileCount:N0}; findings: {result.FindingCount}\nLargest log: {result.LargestLog ?? "none"}\nEmpty addon files: {result.SuspiciousAddonFiles}; empty workshop files: {result.SuspiciousWorkshopFiles}\nArtifacts hashed: {result.HashedArtifactCount}; not hashed: {result.UnhashedArtifacts}\nOldest archive: {age}\nSkipped links: {result.SkippedLinks}; read failures: {result.Issues.Count}\nProcess-name matches: {result.MatchingProcesses} (not a health check)\nTCP checks do not test UDP game ports. ZIP indexes do not prove restore integrity.\nNo files were changed.";
+            foreach (var issue in result.Issues.Take(20)) Activity.Text += $"\n{issue.Path}: {issue.Message}";
+            foreach (var archive in result.FailedZipFiles.Take(20)) Activity.Text += $"\n{archive}: ZIP index could not be read.";
+        }
+        catch (OperationCanceledException) { StateText.Text = "Cancelled"; HealthResult.Text = "Scan cancelled."; Activity.Text = "Scan cancelled. No files were changed."; }
+        catch (Exception ex) { StateText.Text = "Failed"; HealthResult.Text = "Scan could not finish."; Activity.Text = ex.Message; }
+        finally { scanCancellation = null; ChooseServer.IsEnabled = true; RunChecks.Content = "Run checks"; }
     }
     private void LogFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => RefreshLogList();
     private void ClearLogFilter_Click(object sender, RoutedEventArgs e) => LogFilter.Clear();
     private void LogList_SelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         var name = LogList.SelectedItem as string;
-        var path = logFiles.FirstOrDefault(x => Path.GetFileName(x).Equals(name, StringComparison.OrdinalIgnoreCase));
+        var path = logFiles.FirstOrDefault(x => serverRoot is not null && Path.GetRelativePath(serverRoot, x).Equals(name, StringComparison.OrdinalIgnoreCase));
         if (path is null) return;
         try
         {
-            var text = File.ReadAllText(path);
-            var preview = text.Length > 5000 ? text[^5000..] : text;
-            var errors = text.Split('\n').Count(x => x.Contains("error", StringComparison.OrdinalIgnoreCase) || x.Contains("exception", StringComparison.OrdinalIgnoreCase));
-            Activity.Text = $"Log preview: {Path.GetFileName(path)}\nSeverity matches: {errors}\n\n{preview}";
+            var preview = ServerAudit.ReadLogPreview(path);
+            Activity.Text = $"Log preview: {name}\nSeverity matches in displayed text: {preview.SeverityMatches}\n{(preview.Truncated ? "Showing the tail of this UTF-8 log." : "UTF-8 log preview.")}\n\n{preview.Text}";
         }
         catch (Exception ex) { Activity.Text = $"Unable to read selected log: {ex.Message}"; }
     }
@@ -87,6 +118,6 @@ public partial class MainWindow : Window
     {
         if (LogList is null) return;
         var filter = LogFilter?.Text ?? string.Empty;
-        LogList.ItemsSource = logFiles.Where(x => string.IsNullOrWhiteSpace(filter) || x.Contains(filter, StringComparison.OrdinalIgnoreCase)).Select(Path.GetFileName).ToArray();
+        LogList.ItemsSource = logFiles.Where(x => string.IsNullOrWhiteSpace(filter) || x.Contains(filter, StringComparison.OrdinalIgnoreCase)).Select(x => Path.GetRelativePath(serverRoot!, x)).ToArray();
     }
 }

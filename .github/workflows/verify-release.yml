@@ -1,0 +1,34 @@
+name: Verify published release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to verify
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download release and verify GitHub digests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release download $env:RELEASE_TAG --dir verified
+          if ($LASTEXITCODE -ne 0) { throw 'Release download failed.' }
+          $release = gh release view $env:RELEASE_TAG --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Release lookup failed.' }
+          foreach ($asset in $release.assets) {
+            $hash = 'sha256:' + (Get-FileHash -LiteralPath (Join-Path verified $asset.name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -ne $asset.digest) { throw "Asset hash mismatch: $($asset.name)" }
+            Write-Host "Verified published digest: $($asset.name)"
+          }
+      - name: Exercise downloaded standalone executable
+        shell: powershell
+        run: ./tests/PackageUi.ps1 -Exe "${{ github.workspace }}/verified/OpenServerOps.exe"

@@ -17,10 +17,9 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnMainWindowClose;
-        var window = new MainWindow();
+        var initialFolder = e.Args.Length == 2 && e.Args[0] == "--folder" ? e.Args[1] : null;
+        var window = new MainWindow(initialFolder);
         MainWindow = window;
-        window.Closed += (_, _) => WriteCrash(new InvalidOperationException("Main window closed; shutdown mode=" + ShutdownMode));
-        Exit += (_, _) => WriteCrash(new InvalidOperationException("Application exited."));
         window.Show();
         window.Activate();
     }

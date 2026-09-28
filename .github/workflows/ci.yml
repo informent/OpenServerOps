@@ -11,7 +11,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet build -c Release --nologo
+      - run: dotnet run --project tests/ServerAuditTests.csproj -c Release
       - run: pwsh -File tests/Test-Release.ps1
       - run: pwsh -File tests/Test-UI.ps1
       - run: pwsh -File tests/Test-SigningPath.ps1
-      - run: pwsh -File tools/Verify-Release.ps1 -Executable bin/x64/Release/net10.0-windows/OpenServerOps.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenServerOps-win-x64
+          path: test-output/release-*/
