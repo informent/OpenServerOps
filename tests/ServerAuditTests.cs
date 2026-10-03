@@ -43,9 +43,11 @@ try
     foreach (var (path, hash) in before) Require(Hash(path) == hash, "Read-only scan changed a source file.");
     var snapshot = AuditReport.Create(root, result);
     var jsonReport = Path.Combine(root, "audit.json"); var htmlReport = Path.Combine(root, "audit.html");
+    File.WriteAllText(jsonReport, "stale JSON report"); File.WriteAllText(htmlReport, "stale HTML report");
     AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
     Require(snapshot.RiskScore > 0 && snapshot.HealthGrade is not "A", "Risk grading ignored known findings.");
     Require(File.ReadAllText(jsonReport).Contains("\"RiskScore\"") && File.ReadAllText(htmlReport).Contains("OPENSERVEROPS 2.0 AUDIT"), "Report export failed.");
+    Require(!File.ReadAllText(jsonReport).Contains("stale JSON report") && !File.ReadAllText(htmlReport).Contains("stale HTML report"), "Successful report export did not replace existing content.");
     var protectedJson = Path.Combine(root, "protected-json"); Directory.CreateDirectory(protectedJson);
     File.WriteAllText(Path.Combine(protectedJson, "keep.txt"), "previous JSON");
     try { AuditReport.WriteJson(snapshot, protectedJson); throw new Exception("JSON export replaced a directory."); }
