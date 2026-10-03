@@ -18,7 +18,7 @@ public static class AuditReport
     }
 
     public static void WriteJson(AuditSnapshot snapshot, string path) =>
-        File.WriteAllText(path, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+        WriteAtomically(path, stream => JsonSerializer.Serialize(stream, snapshot, new JsonSerializerOptions { WriteIndented = true }));
 
     public static void WriteHtml(AuditSnapshot snapshot, string path)
     {
@@ -36,6 +36,34 @@ public static class AuditReport
         <section class="card"><h2>Read issues</h2><table><tr><th>Path</th><th>Finding</th></tr>{{rows}}</table></section>
         <section class="card"><small>Generated locally by OpenServerOps. Scans are read-only; TCP checks do not test UDP game ports and ZIP indexing does not prove restorability.</small></section></main></body></html>
         """;
-        File.WriteAllText(path, html, new UTF8Encoding(false));
+        WriteAtomically(path, stream =>
+        {
+            using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true);
+            writer.Write(html);
+            writer.Flush();
+        });
+    }
+
+    private static void WriteAtomically(string path, Action<Stream> write)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(write);
+        var fullPath = Path.GetFullPath(path);
+        var directory = Path.GetDirectoryName(fullPath)!;
+        var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                write(stream);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 }
