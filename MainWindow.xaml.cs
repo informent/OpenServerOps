@@ -118,6 +118,6 @@ public partial class MainWindow : Window
     {
         if (LogList is null) return;
         var filter = LogFilter?.Text ?? string.Empty;
-        LogList.ItemsSource = logFiles.Where(x => string.IsNullOrWhiteSpace(filter) || x.Contains(filter, StringComparison.OrdinalIgnoreCase)).Select(x => Path.GetRelativePath(serverRoot!, x)).ToArray();
+        LogList.ItemsSource = logFiles.Select(x => Path.GetRelativePath(serverRoot!, x)).Where(x => string.IsNullOrWhiteSpace(filter) || x.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 }

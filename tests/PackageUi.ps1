@@ -4,7 +4,7 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ('OpenServerOps-ui-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path ([IO.Path]::GetTempPath()) ('OpenServerOps-ui-' + [guid]::NewGuid().ToString('N') + '-b')
 $null = New-Item -ItemType Directory -Path (Join-Path $fixture 'a'),(Join-Path $fixture 'b'),(Join-Path $fixture 'addons')
 [IO.File]::WriteAllText((Join-Path $fixture 'a/server.log'), 'FIRST_LOG_MARKER')
 [IO.File]::WriteAllText((Join-Path $fixture 'b/server.log'), ('historical line' * 150000) + "`nERROR SECOND_LOG_MARKER")
@@ -46,9 +46,12 @@ try {
     }
     $filter = Control $window 'LogFilter'
     $filter.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('b\')
-    Start-Sleep -Milliseconds 200
-    $items = $list.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::ListItem))
-    if ($items.Count -ne 1) { throw 'Log filtering failed.' }
+    for ($i=0; $i -lt 20; $i++) {
+        Start-Sleep -Milliseconds 250
+        $items = $list.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::ListItem))
+        if ($items.Count -eq 1 -and $items[0].Current.Name -eq 'b\server.log') { break }
+    }
+    if ($items.Count -ne 1 -or $items[0].Current.Name -ne 'b\server.log') { throw 'Relative log filtering failed; parent folder names must not match.' }
     foreach ($path in $before.Keys) { if ((Get-FileHash -LiteralPath $path).Hash -ne $before[$path]) { throw 'Audit changed a fixture file.' } }
     Write-Output 'PASS: downloaded/packaged UI scanned the fixture, showed real findings, selected both duplicate-name logs, filtered logs, and preserved all source hashes.'
 } finally {

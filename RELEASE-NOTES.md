@@ -1,4 +1,6 @@
-# OpenServerOps 1.1.0
+# OpenServerOps 1.1.1
+
+This replaces 1.1.0 after downloaded-release testing found that log filters could match the parent folder name. Filters now use relative log paths, and the packaged regression fixture always reproduces the original collision.
 
 - Keep the window responsive during scans and add cancellation through the existing scan button.
 - Replace repeated recursive scans with one inventory pass; skip linked folders and report inaccessible paths.

@@ -2,7 +2,7 @@
 
 A local Windows server inventory and troubleshooting console. Choose a server folder, run checks, and inspect findings and log previews. Scans do not modify server files or connect to a hosting account.
 
-## Version 1.1.0
+## Version 1.1.1
 
 - Scan once in the background, with **Cancel scan** available while work runs.
 - Skip symbolic links and junctions, including cycles. Unreadable paths produce a partial scan and visible findings.
