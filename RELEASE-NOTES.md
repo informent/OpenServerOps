@@ -1,4 +1,8 @@
-# OpenServerOps 1.1.1
+# OpenServerOps 2.0.0
+
+OpenServerOps 2.0 turns scans into shareable operational evidence. Export the complete result as structured JSON or a polished standalone HTML report with a deterministic health grade, risk score, coverage metrics, port observations, backup status, and read failures.
+
+The 1.1.1 relative-path filtering correction is included.
 
 This replaces 1.1.0 after downloaded-release testing found that log filters could match the parent folder name. Filters now use relative log paths, and the packaged regression fixture always reproduces the original collision.
 

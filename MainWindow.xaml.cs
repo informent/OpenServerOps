@@ -10,6 +10,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<string> logFiles = Array.Empty<string>();
     private readonly AppSettings settings;
     private System.Windows.Controls.TextBox? portEditor;
+    private AuditSnapshot? latestSnapshot;
     public MainWindow(string? initialFolder = null)
     {
         InitializeComponent(); settings = AppSettings.Load(); DarkMode.IsChecked = settings.DarkMode; LogList.SelectionChanged += LogList_SelectionChanged;
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
         try
         {
             var result = await Task.Run(() => ServerAudit.Scan(root, new[] { port }, cancellation.Token));
+            latestSnapshot = AuditReport.Create(root, result); ExportJson.IsEnabled = true; ExportHtml.IsEnabled = true;
             StateText.Text = result.Issues.Count > 0 ? "Partial scan" : "Checked";
             LastCheck.Text = DateTime.Now.ToShortTimeString(); FindingCount.Text = result.FindingCount.ToString();
             var disk = result.FreeBytes < 0 ? "Disk space unavailable" : $"{result.FreeBytes / (1024d * 1024 * 1024):N1} GB free";
@@ -89,6 +91,21 @@ public partial class MainWindow : Window
     }
     private void LogFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => RefreshLogList();
     private void ClearLogFilter_Click(object sender, RoutedEventArgs e) => LogFilter.Clear();
+    private void ExportJson_Click(object sender, RoutedEventArgs e) => ExportReport(false);
+    private void ExportHtml_Click(object sender, RoutedEventArgs e) => ExportReport(true);
+    private void ExportReport(bool html)
+    {
+        if (latestSnapshot is null) return;
+        using var dialog = new Forms.SaveFileDialog
+        {
+            Title = html ? "Export HTML audit report" : "Export JSON audit data",
+            Filter = html ? "HTML report (*.html)|*.html" : "JSON data (*.json)|*.json",
+            FileName = $"OpenServerOps-{new DirectoryInfo(latestSnapshot.ServerRoot).Name}-{DateTime.Now:yyyyMMdd-HHmm}.{(html ? "html" : "json")}"
+        };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK) return;
+        if (html) AuditReport.WriteHtml(latestSnapshot, dialog.FileName); else AuditReport.WriteJson(latestSnapshot, dialog.FileName);
+        Activity.Text = $"Exported {(html ? "HTML report" : "JSON data")} to:\n{dialog.FileName}";
+    }
     private void LogList_SelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         var name = LogList.SelectedItem as string;

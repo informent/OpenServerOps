@@ -41,6 +41,11 @@ try
     Require(result.Ports.Single().Open, "Listening localhost TCP port was not detected.");
     Require(result.LogFiles.Any(path => path.EndsWith(Path.Combine("first", "server.log"))) && result.LogFiles.Any(path => path.EndsWith(Path.Combine("second", "server.log"))), "Duplicate log filenames were lost.");
     foreach (var (path, hash) in before) Require(Hash(path) == hash, "Read-only scan changed a source file.");
+    var snapshot = AuditReport.Create(root, result);
+    var jsonReport = Path.Combine(root, "audit.json"); var htmlReport = Path.Combine(root, "audit.html");
+    AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
+    Require(snapshot.RiskScore > 0 && snapshot.HealthGrade is not "A", "Risk grading ignored known findings.");
+    Require(File.ReadAllText(jsonReport).Contains("\"RiskScore\"") && File.ReadAllText(htmlReport).Contains("OPENSERVEROPS 2.0 AUDIT"), "Report export failed.");
     Console.WriteLine("PASS: single inventory, relative classifications, archive distinctions, findings, locked files, hash limits, TCP and read-only hashes");
 
     using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
@@ -59,7 +64,7 @@ try
     {
         blocked.SetAccessControl(deniedAcl);
         var partial = ServerAudit.Scan(root, Array.Empty<int>());
-        Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 13, "Inaccessible directory did not produce a partial scan.");
+        Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 15, "Inaccessible directory did not produce a partial scan.");
     }
     finally
     {
