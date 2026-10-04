@@ -105,7 +105,11 @@ try
             var partial = ServerAudit.Scan(root, Array.Empty<int>());
             Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 17, "Inaccessible directory did not produce a partial scan.");
         }
-        finally { blocked.SetAccessControl(originalAcl); }
+        finally
+        {
+            deniedAcl.SetSecurityDescriptorBinaryForm(originalAcl.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+            blocked.SetAccessControl(deniedAcl);
+        }
         Console.WriteLine("PASS: inaccessible folder reported while accessible files remain inventoried");
     }
 
