@@ -12,7 +12,7 @@ jobs:
   verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Download release and verify GitHub digests
         shell: pwsh
         env:
