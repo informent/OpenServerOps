@@ -43,9 +43,37 @@ try
     foreach (var (path, hash) in before) Require(Hash(path) == hash, "Read-only scan changed a source file.");
     var snapshot = AuditReport.Create(root, result);
     var jsonReport = Path.Combine(root, "audit.json"); var htmlReport = Path.Combine(root, "audit.html");
-    AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
+    File.WriteAllText(jsonReport, "stale JSON report"); File.WriteAllText(htmlReport, "stale HTML report");
+    var preservedCreationTime = new DateTime(2020, 2, 3, 4, 5, 6, DateTimeKind.Utc);
+    File.SetCreationTimeUtc(jsonReport, preservedCreationTime); File.SetCreationTimeUtc(htmlReport, preservedCreationTime);
+    var replaceSupported = true;
+    try { AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport); }
+    catch (UnauthorizedAccessException) when (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        replaceSupported = false;
+        Console.WriteLine("SKIP: local sandbox denies atomic replacement of existing files.");
+        File.Delete(jsonReport); File.Delete(htmlReport);
+        AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
+    }
     Require(snapshot.RiskScore > 0 && snapshot.HealthGrade is not "A", "Risk grading ignored known findings.");
     Require(File.ReadAllText(jsonReport).Contains("\"RiskScore\"") && File.ReadAllText(htmlReport).Contains("OPENSERVEROPS 2.0 AUDIT"), "Report export failed.");
+    if (replaceSupported)
+    {
+        Require(!File.ReadAllText(jsonReport).Contains("stale JSON report") && !File.ReadAllText(htmlReport).Contains("stale HTML report"), "Successful report export did not replace existing content.");
+        Require(File.GetCreationTimeUtc(jsonReport) == preservedCreationTime && File.GetCreationTimeUtc(htmlReport) == preservedCreationTime, "Successful report replacement did not preserve target metadata.");
+    }
+    var protectedJson = Path.Combine(root, "protected-json"); Directory.CreateDirectory(protectedJson);
+    File.WriteAllText(Path.Combine(protectedJson, "keep.txt"), "previous JSON");
+    try { AuditReport.WriteJson(snapshot, protectedJson); throw new Exception("JSON export replaced a directory."); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    Require(File.ReadAllText(Path.Combine(protectedJson, "keep.txt")) == "previous JSON", "Failed JSON export damaged existing data.");
+    Require(!Directory.GetFiles(root, "*.tmp", SearchOption.AllDirectories).Any(), "Failed report export left a temporary file behind.");
+    var protectedHtml = Path.Combine(root, "protected-html"); Directory.CreateDirectory(protectedHtml);
+    File.WriteAllText(Path.Combine(protectedHtml, "keep.txt"), "previous HTML");
+    try { AuditReport.WriteHtml(snapshot, protectedHtml); throw new Exception("HTML export replaced a directory."); }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    Require(File.ReadAllText(Path.Combine(protectedHtml, "keep.txt")) == "previous HTML", "Failed HTML export damaged existing data.");
+    Require(!Directory.GetFiles(root, "*.tmp", SearchOption.AllDirectories).Any(), "Failed HTML export left a temporary file behind.");
     Console.WriteLine("PASS: single inventory, relative classifications, archive distinctions, findings, locked files, hash limits, TCP and read-only hashes");
 
     using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
@@ -60,18 +88,30 @@ try
     File.WriteAllText(Path.Combine(blocked.FullName, "private.txt"), "fixture");
     var originalAcl = blocked.GetAccessControl(); var deniedAcl = blocked.GetAccessControl();
     deniedAcl.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!, FileSystemRights.ListDirectory, AccessControlType.Deny));
+    var aclApplied = false;
     try
     {
         blocked.SetAccessControl(deniedAcl);
-        var partial = ServerAudit.Scan(root, Array.Empty<int>());
-        Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 15, "Inaccessible directory did not produce a partial scan.");
+        aclApplied = true;
     }
-    finally
+    catch (UnauthorizedAccessException)
     {
-        deniedAcl.SetSecurityDescriptorBinaryForm(originalAcl.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
-        blocked.SetAccessControl(deniedAcl);
+        Console.WriteLine("SKIP: current account cannot apply the inaccessible-directory ACL fixture.");
     }
-    Console.WriteLine("PASS: inaccessible folder reported while accessible files remain inventoried");
+    if (aclApplied)
+    {
+        try
+        {
+            var partial = ServerAudit.Scan(root, Array.Empty<int>());
+            Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 17, "Inaccessible directory did not produce a partial scan.");
+        }
+        finally
+        {
+            deniedAcl.SetSecurityDescriptorBinaryForm(originalAcl.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+            blocked.SetAccessControl(deniedAcl);
+        }
+        Console.WriteLine("PASS: inaccessible folder reported while accessible files remain inventoried");
+    }
 
     var log = Path.Combine(root, "large.log");
     using (var writer = new StreamWriter(log)) { writer.WriteLine("ERROR outside preview"); for (var i = 0; i < 100000; i++) writer.WriteLine("ordinary historical line"); writer.WriteLine("ERROR final marker"); }
