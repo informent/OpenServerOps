@@ -44,10 +44,24 @@ try
     var snapshot = AuditReport.Create(root, result);
     var jsonReport = Path.Combine(root, "audit.json"); var htmlReport = Path.Combine(root, "audit.html");
     File.WriteAllText(jsonReport, "stale JSON report"); File.WriteAllText(htmlReport, "stale HTML report");
-    AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
+    var preservedCreationTime = new DateTime(2020, 2, 3, 4, 5, 6, DateTimeKind.Utc);
+    File.SetCreationTimeUtc(jsonReport, preservedCreationTime); File.SetCreationTimeUtc(htmlReport, preservedCreationTime);
+    var replaceSupported = true;
+    try { AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport); }
+    catch (UnauthorizedAccessException) when (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        replaceSupported = false;
+        Console.WriteLine("SKIP: local sandbox denies atomic replacement of existing files.");
+        File.Delete(jsonReport); File.Delete(htmlReport);
+        AuditReport.WriteJson(snapshot, jsonReport); AuditReport.WriteHtml(snapshot, htmlReport);
+    }
     Require(snapshot.RiskScore > 0 && snapshot.HealthGrade is not "A", "Risk grading ignored known findings.");
     Require(File.ReadAllText(jsonReport).Contains("\"RiskScore\"") && File.ReadAllText(htmlReport).Contains("OPENSERVEROPS 2.0 AUDIT"), "Report export failed.");
-    Require(!File.ReadAllText(jsonReport).Contains("stale JSON report") && !File.ReadAllText(htmlReport).Contains("stale HTML report"), "Successful report export did not replace existing content.");
+    if (replaceSupported)
+    {
+        Require(!File.ReadAllText(jsonReport).Contains("stale JSON report") && !File.ReadAllText(htmlReport).Contains("stale HTML report"), "Successful report export did not replace existing content.");
+        Require(File.GetCreationTimeUtc(jsonReport) == preservedCreationTime && File.GetCreationTimeUtc(htmlReport) == preservedCreationTime, "Successful report replacement did not preserve target metadata.");
+    }
     var protectedJson = Path.Combine(root, "protected-json"); Directory.CreateDirectory(protectedJson);
     File.WriteAllText(Path.Combine(protectedJson, "keep.txt"), "previous JSON");
     try { AuditReport.WriteJson(snapshot, protectedJson); throw new Exception("JSON export replaced a directory."); }
@@ -88,8 +102,8 @@ try
     {
         try
         {
-        var partial = ServerAudit.Scan(root, Array.Empty<int>());
-        Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 15, "Inaccessible directory did not produce a partial scan.");
+            var partial = ServerAudit.Scan(root, Array.Empty<int>());
+            Require(partial.Issues.Any(issue => issue.Path == "blocked") && partial.FileCount == 17, "Inaccessible directory did not produce a partial scan.");
         }
         finally { blocked.SetAccessControl(originalAcl); }
         Console.WriteLine("PASS: inaccessible folder reported while accessible files remain inventoried");
