@@ -2,10 +2,11 @@
 
 A local Windows server inventory and troubleshooting console. Choose a server folder, run checks, and inspect findings and log previews. Scans do not modify server files or connect to a hosting account.
 
-## Version 2.0.0
+## Version 2.0.1
 
 - Export portable JSON evidence and a standalone, human-readable HTML health report.
 - Every report includes a deterministic A-F health grade and 0-100 risk score.
+- Stage report exports before replacement, preserving existing target metadata and keeping the previous report intact if a write fails.
 
 - Scan once in the background, with **Cancel scan** available while work runs.
 - Skip symbolic links and junctions, including cycles. Unreadable paths produce a partial scan and visible findings.
