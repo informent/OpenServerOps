@@ -1,4 +1,8 @@
-# OpenServerOps 2.0.0
+# OpenServerOps 2.0.1
+
+This patch hardens audit report exports. JSON and HTML reports are staged beside their destination, flushed before publication, and replace existing files with Windows replace-file semantics to retain destination metadata. Failed writes leave the previous report in place and remove the temporary output.
+
+## 2.0.0
 
 OpenServerOps 2.0 turns scans into shareable operational evidence. Export the complete result as structured JSON or a polished standalone HTML report with a deterministic health grade, risk score, coverage metrics, port observations, backup status, and read failures.
 

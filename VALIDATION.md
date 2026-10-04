@@ -1,4 +1,4 @@
-# OpenServerOps 2.0.0 validation
+# OpenServerOps 2.0.1 validation
 
 ## Automated coverage
 
@@ -12,6 +12,7 @@
 - The packaged UI scans a fixture, displays two expected findings, opens both duplicate-name logs correctly, filters by relative paths despite a matching parent-folder suffix, and preserves fixture hashes.
 - A separate workflow downloads published assets, checks their GitHub digests and exercises the downloaded EXE on a Windows runner.
 - JSON and standalone HTML exports are generated from a real audit result and include deterministic risk grading.
+- Existing report replacement retains creation metadata on Windows; failed replacement leaves prior contents intact and cleans temporary output.
 
 The packaged UI workflow uses the documented `--folder` startup option. It does not claim native folder-picker coverage. Static installer/signing-script checks are not installer round-trip tests or proof of a signed executable.
 
